@@ -3,6 +3,7 @@ import pandas as pd
 import matplotlib.pyplot  as plt
 import numpy as np
 from InicArchivo import verifArchivo
+import matplotlib.dates as mdates
 
 from Libro import Libro
 from Cliente import Cliente
@@ -366,7 +367,25 @@ def main(page: ft.Page):
     #############################################################
 
     def verGraficaLibro():
-        pass
+        dfLibros = pd.read_csv(rutaLibros)
+        dfVentas = pd.read_csv(rutaVentas)
+        
+        dfVentas = dfVentas["IdLibro"].value_counts().reset_index()
+        dfVentas.columns = ["id", "Ventas"]
+        
+        dfLibros = pd.merge(dfLibros, dfVentas, on="id", how="left")
+        dfLibros["Ventas"].fillna(0, inplace=True) 
+        
+        dfLibros = dfLibros.sort_values(by="Ventas", ascending=False)
+        top_libros = dfLibros.head(10)
+        
+        plt.figure(figsize=(10, 6))
+        plt.barh(top_libros["titulo"], top_libros["Ventas"], color='skyblue')
+        plt.xlabel("Ventas")
+        plt.ylabel("Título del Libro")
+        plt.title("Top 10 Libros Más Vendidos")
+        plt.gca().invert_yaxis()
+        plt.show()
 
 
     tabsLibro = ft.Tabs(
@@ -383,9 +402,25 @@ def main(page: ft.Page):
     )
 
     def verGraficaCliente():
-
-
-        pass
+        dfClientes = pd.read_csv(rutaClientes)
+        dfVentas = pd.read_csv(rutaVentas)
+        
+        dfCompras = dfVentas["IdCliente"].value_counts().reset_index()
+        dfCompras.columns = ["id", "Compras"]
+        
+        dfClientes = pd.merge(dfClientes, dfCompras, on="id", how="left")
+        dfClientes["Compras"].fillna(0, inplace=True)  # Reemplazar valores nulos con 0
+        
+        dfClientes = dfClientes.sort_values(by="Compras", ascending=False)
+        top_clientes = dfClientes.head(10)
+        
+        plt.figure(figsize=(10, 6))
+        plt.barh(top_clientes["nombre"], top_clientes["Compras"], color='lightcoral')
+        plt.xlabel("Compras")
+        plt.ylabel("Nombre del Cliente")
+        plt.title("Top 10 Clientes con Más Compras")
+        plt.gca().invert_yaxis()
+        plt.show()
 
     tabsCliente = ft.Tabs(
         selected_index=0, # Cuando se inicie la app, en que pestaña va a iniciarse
@@ -541,42 +576,60 @@ def main(page: ft.Page):
 
     ####################################################################
 
-    def verGraficaVentas():
-        # Crear valores de x desde 0 hasta 2π
-        t = np.linspace(0, 2*np.pi, 100)
+    def verGraficaVentas(fecha_inicio, fecha_fin):
+        dfVentas = pd.read_csv(rutaVentas)
+        dfVentas["FechaVenta"] = pd.to_datetime(dfVentas["FechaVenta"], errors='coerce') 
+        
+        if pd.isna(fecha_inicio) or pd.isna(fecha_fin):
+            print("Error: Las fechas de inicio o fin no son válidas.")
+            return
+        
+        dfVentas = dfVentas[(dfVentas["FechaVenta"] >= fecha_inicio) & (dfVentas["FechaVenta"] <= fecha_fin)]
+        
+        if dfVentas.empty:
+            print("No hay ventas en el rango seleccionado.")
+            return
 
-        # Calcular seno y coseno
-        y1 = np.sin(t)
-        y2 = np.cos(t)
+        fechas_rango = pd.date_range(start=fecha_inicio, end=fecha_fin, freq='D')
+        dfVentasTiempo = dfVentas.resample('D', on="FechaVenta").size().reindex(fechas_rango, fill_value=0).reset_index()
+        dfVentasTiempo.columns = ["FechaVenta", "Ventas"]
+        
+        plt.figure(figsize=(12, 6))
+        plt.bar(dfVentasTiempo["FechaVenta"], dfVentasTiempo["Ventas"], color='green', width=0.8)
+        plt.xlabel("Fecha")
+        plt.ylabel("Cantidad de Ventas")
+        plt.title(f"Ventas por Día ({fecha_inicio.date()} a {fecha_fin.date()})")
+        plt.xticks(rotation=45)
+        
 
-        # Crear la gráfica
-        plt.figure(figsize=(8, 5))
-        plt.plot(t, y1, label='Seno', color='b', linestyle='-')
-        plt.plot(t, y2, label='Coseno', color='r', linestyle='--')
-
-        # Agregar etiquetas y título
-        plt.xlabel('Ángulo (radianes)')
-        plt.ylabel('Valor')
-        plt.title('Funciones Seno y Coseno')
-        plt.legend()
-        plt.grid()
-
-        # Mostrar la gráfica
+        plt.gca().xaxis.set_major_locator(mdates.AutoDateLocator())
+        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+        
+        plt.grid(axis='y', linestyle='--', alpha=0.7)
+        plt.tight_layout()
         plt.show()
 
-
-
+    fechaInicioI = ft.TextField(label="Fecha de inicio (YYYY-MM-DD)")
+    fechaFinI = ft.TextField(label="Fecha de fin (YYYY-MM-DD)")
+    
     tabsVenta = ft.Tabs(
-        selected_index=0, # Cuando se inicie la app, en que pestaña va a iniciarse
-        animation_duration=100, # Al cambiar de pestaña, cuanto se tarda en cambiarla
-        tabs=
-        [
+        selected_index=0,
+        animation_duration=100,
+        tabs=[
             ft.Tab(text = "Registrar venta", icon=ft.icons.APP_REGISTRATION, content=ft.Row([datosRegistro_venta],alignment=ft.MainAxisAlignment.CENTER)),
             ft.Tab(text = "Consultar venta", icon=ft.icons.DRAW, content=ft.Row([datosConsultarVenta],alignment=ft.MainAxisAlignment.CENTER)),
-            ft.Tab(text = "Gráfico", icon=ft.icons.GRAPHIC_EQ, content=ft.Row([ft.Text("Ventas según intervalos de tiempo"),ft.FilledButton("Ver gráfica", on_click=lambda _: verGraficaVentas())],alignment=ft.MainAxisAlignment.CENTER)),
+            ft.Tab(text="Gráfico", icon=ft.icons.GRAPHIC_EQ, content=ft.Column([
+                ft.Row([fechaInicioI, fechaFinI]),
+                ft.Row([
+                    ft.Text("Ventas por Día"),
+                    ft.FilledButton("Ver gráfica", on_click=lambda _: verGraficaVentas(pd.to_datetime(fechaInicioI.value), pd.to_datetime(fechaFinI.value))
+)
+                    ], alignment=ft.MainAxisAlignment.CENTER),
+            ], alignment=ft.MainAxisAlignment.CENTER)),
         ],
-        expand=1, # Contenedor ajustandose al ancho de su contenedor padre (en este caso, la página como tal)
+        expand=1
     )
+        
 
     ###################################################################
 
