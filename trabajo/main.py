@@ -2,17 +2,17 @@ import flet as ft
 import pandas as pd
 import matplotlib.pyplot  as plt
 import numpy as np
+from InicArchivo import verifArchivo
 
 from Libro import Libro
 from Cliente import Cliente
 from Venta import Venta
 
-def main(page: ft.Page):
-    rutaLibros = "C:/libsoftcsv/libros.csv"
-    rutaClientes = "C:/libsoftcsv/clientes.csv"
-    rutaVentas = "C:/libsoftcsv/ventas.csv"
-    
+rutaLibros = verifArchivo("libros.csv",["id","titulo","autor","año","genero","precio"])
+rutaClientes = verifArchivo("clientes.csv",["id","nombre","apellido","correo","direccion"])
+rutaVentas = verifArchivo("ventas.csv",["IdVenta","IdCliente","IdLibro","FechaVenta"])
 
+def main(page: ft.Page):
     page.bgcolor = "#383838"
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
     page.title = "LibSoft" 
@@ -511,10 +511,13 @@ def main(page: ft.Page):
             dfVenta = pd.read_csv(rutaVentas)
             dfCliente = pd.read_csv(rutaClientes)
             dfLibro = pd.read_csv(rutaLibros)
+            
+            dfVenta["IdVenta"] = dfVenta["IdVenta"].astype(int)
+            
             filas = []
-            if id in dfVenta["IdVenta"]:
-                idLibro = int(dfVenta.loc[dfVenta['IdVenta'] == id, "IdLibro"])
-                idCliente = int(dfVenta.loc[dfVenta['IdVenta'] == id, "IdCliente"])
+            if id in dfVenta["IdVenta"].values:
+                idLibro = int(dfVenta.loc[dfVenta['IdVenta'] == id, "IdLibro"].values[0])
+                idCliente = int(dfVenta.loc[dfVenta['IdVenta'] == id, "IdCliente"].values[0])
 
                 filas.append(ft.DataRow(cells=[
                     ft.DataCell(ft.Text(id)),
